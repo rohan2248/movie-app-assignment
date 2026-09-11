@@ -1,17 +1,25 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 
+import { createQueryClient } from '@/api/query-client';
 import { Colors } from '@/constants/theme';
 import { ThemePreferenceProvider, useThemePreference } from '@/providers/theme-preference';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  // One client per app instance, never module scope: the static web export
+  // prerenders every route in the same Node process.
+  const [queryClient] = useState(createQueryClient);
+
   return (
     <ThemePreferenceProvider>
-      <RootNavigator />
+      <QueryClientProvider client={queryClient}>
+        <RootNavigator />
+      </QueryClientProvider>
     </ThemePreferenceProvider>
   );
 }
