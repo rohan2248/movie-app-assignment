@@ -46,6 +46,9 @@ server/data/
 # typescript
 *.tsbuildinfo
 
+# browser-automation artifacts from local UI verification
+.playwright-mcp/
+
 example
 
 # generated native folders
@@ -54,5 +57,5 @@ example
 
 
 plan.md
-.claude/
-settings.json
+
+.claude\settings.json

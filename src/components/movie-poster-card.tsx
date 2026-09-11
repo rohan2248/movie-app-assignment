@@ -1,4 +1,5 @@
 import type { MovieSummary } from '@shared/api-types';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
@@ -14,6 +15,7 @@ import {
   CARD_TITLE_LINE_HEIGHT,
   type GridLayout,
 } from '@/hooks/use-grid-layout';
+import { prefetchMovieDetail } from '@/hooks/use-movie-detail';
 import { useTheme } from '@/hooks/use-theme';
 import { formatRating } from '@/lib/format';
 
@@ -28,6 +30,7 @@ type Props = {
  * change a row's height.
  */
 export function MoviePosterCard({ movie, layout }: Props) {
+  const queryClient = useQueryClient();
   const year = movie.releaseYear ? String(movie.releaseYear) : 'Year unknown';
   const ratingLabel = movie.rating !== null ? `, rated ${formatRating(movie.rating)} out of 10` : '';
 
@@ -36,6 +39,8 @@ export function MoviePosterCard({ movie, layout }: Props) {
       <Pressable
         accessibilityRole="link"
         accessibilityLabel={`${movie.title}, ${year}${ratingLabel}`}
+        // Touch-down, not tap: the detail request starts before the push does.
+        onPressIn={() => prefetchMovieDetail(queryClient, movie.id)}
         // Static style on purpose: under `Link asChild` on web a function-form
         // style is dropped, silently losing the fixed size. Pressed feedback
         // lives in the children render function instead.

@@ -1,7 +1,13 @@
 import { FlashList, type FlashListRef, type ListRenderItemInfo } from '@shopify/flash-list';
 import type { MovieSummary } from '@shared/api-types';
 import type { ReactElement, Ref } from 'react';
-import { ActivityIndicator, RefreshControl, View } from 'react-native';
+import {
+  ActivityIndicator,
+  RefreshControl,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 
 import { MoviePosterCard, MoviePosterCardSkeleton } from '@/components/movie-poster-card';
 import { ActionButton } from '@/components/state-views';
@@ -43,6 +49,8 @@ type Props = {
   onRefresh?: () => void;
   ListEmptyComponent?: ReactElement | null;
   endMessage?: string;
+  onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  onContentSizeChange?: (width: number, height: number) => void;
 };
 
 /** All FlashList configuration lives here so screens never repeat it. */
@@ -58,6 +66,8 @@ export function MovieGrid({
   onRefresh,
   ListEmptyComponent,
   endMessage = "You've reached the end",
+  onScroll,
+  onContentSizeChange,
 }: Props) {
   const theme = useTheme();
 
@@ -103,6 +113,9 @@ export function MovieGrid({
       numColumns={layout.columns}
       onEndReached={handleEndReached}
       onEndReachedThreshold={0.6}
+      onScroll={onScroll}
+      scrollEventThrottle={100}
+      onContentSizeChange={onContentSizeChange}
       // This list replaces its data when filters change rather than prepending,
       // so v2's default scroll anchoring would only fight the scroll-to-top.
       maintainVisibleContentPosition={{ disabled: true }}

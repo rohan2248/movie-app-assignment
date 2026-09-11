@@ -32,9 +32,14 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "concurrently": "^10.0.5",
     "typescript": "~6.0.3"
   },
   "scripts": {
+    "dev": "concurrently -n app,api -c cyan,magenta \"npm:start\" \"npm:dev:server\"",
+    "dev:server": "npm --prefix server run dev",
+    "server:install": "npm --prefix server install",
+    "typecheck": "tsc --noEmit && npm --prefix server run typecheck",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",

@@ -1,5 +1,6 @@
 import type { FlashListRef } from '@shopify/flash-list';
 import type { MovieSummary } from '@shared/api-types';
+import { useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
@@ -22,6 +23,8 @@ const SEARCH_DEBOUNCE_MS = 350;
 const SORT_IN_SEARCH_NOTE = 'Sorting applies while browsing, not while searching.';
 /** Bound on auto-fetching when a genre-filtered search leaves pages sparse. */
 const MAX_AUTOFILL_PAGES = 5;
+/** How long a returning list may take to regrow before scroll restore gives up. */
+const RESTORE_TIMEOUT_MS = 3000;
 
 export default function DiscoverScreen() {
   const theme = useTheme();
@@ -31,6 +34,56 @@ export default function DiscoverScreen() {
   const listRef = useRef<FlashListRef<MovieSummary>>(null);
 
   const { filters, setFilters } = useDiscoverParams();
+  // Under a pushed detail screen this grid stays mounted but can be laid out
+  // at zero height (web hides covered screens), where FlashList considers the
+  // end permanently "reached" and would page through all 500 pages unseen.
+  // Pagination only runs while the screen is actually visible.
+  const focused = useIsFocused();
+
+  // Web hides a covered screen with display:none, and a hidden scroller loses
+  // its offset. Restoring is keyed on content size, not on focus or on the
+  // list reappearing: focus returns the moment back is pressed while the
+  // screen stays hidden through the pop transition, and when it does reappear
+  // FlashList first lays out with collapsed content (content height equal to
+  // the viewport), regrowing it only after a re-layout. Any offset written
+  // before then clamps to 0. So remember the last *visible* offset, and put
+  // it back once the content is tall enough to hold it. Native never lays a
+  // covered screen out at zero height, so none of this fires there.
+  const scrollOffset = useRef(0);
+  const restore = useRef({ pending: false, deadline: 0, viewport: 0, content: 0 });
+
+  function tryRestore() {
+    const r = restore.current;
+    if (!r.pending || r.viewport === 0) return;
+    if (Date.now() > r.deadline) {
+      r.pending = false;
+      return;
+    }
+    if (r.content - r.viewport < scrollOffset.current - 1) return;
+    r.pending = false;
+    listRef.current?.scrollToOffset({ offset: scrollOffset.current, animated: false });
+  }
+
+  function handleListLayout(height: number) {
+    const r = restore.current;
+    if (height === 0) {
+      if (scrollOffset.current > 0) {
+        r.pending = true;
+        r.deadline = Infinity;
+      }
+    } else if (r.viewport === 0 && r.pending) {
+      // Visible again. If the content never regrows (the list shrank in the
+      // meantime), give up rather than leave offset tracking switched off.
+      r.deadline = Date.now() + RESTORE_TIMEOUT_MS;
+    }
+    r.viewport = height;
+    tryRestore();
+  }
+
+  function handleContentSize(height: number) {
+    restore.current.content = height;
+    tryRestore();
+  }
 
   // Raw text drives the input; only the debounced value reaches the query key
   // (via the URL), so typing is never gated on the network.
@@ -59,6 +112,8 @@ export default function DiscoverScreen() {
   // New filters mean a new list: start it from the top.
   const filterKey = JSON.stringify(normalizeFilters(filters));
   useEffect(() => {
+    scrollOffset.current = 0;
+    restore.current.pending = false;
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
   }, [filterKey]);
 
@@ -68,6 +123,7 @@ export default function DiscoverScreen() {
   const pageCount = movies.data?.pages.length ?? 0;
   useEffect(() => {
     if (
+      focused &&
       movies.isSuccess &&
       !movies.isFetching &&
       movies.hasNextPage &&
@@ -103,17 +159,31 @@ export default function DiscoverScreen() {
     );
   } else {
     body = (
-      <View style={{ flex: 1, opacity: movies.isPlaceholderData ? 0.55 : 1 }}>
+      <View
+        style={{ flex: 1, opacity: movies.isPlaceholderData ? 0.55 : 1 }}
+        onLayout={(event) => handleListLayout(event.nativeEvent.layout.height)}>
         <MovieGrid
           listRef={listRef}
           items={items}
           layout={layout}
           hasNextPage={movies.hasNextPage}
           isFetchingNextPage={movies.isFetchingNextPage}
-          onLoadMore={() => movies.fetchNextPage()}
+          onLoadMore={() => {
+            if (focused) movies.fetchNextPage();
+          }}
           loadMoreError={movies.isFetchNextPageError ? movies.error : null}
           refreshing={movies.isRefetching && !movies.isFetchingNextPage && !movies.isPlaceholderData}
           onRefresh={() => movies.refetch()}
+          onScroll={(event) => {
+            // Offsets reported while hidden, or before a pending restore has
+            // landed, are clamped values, not real scrolls.
+            const r = restore.current;
+            const restoring = r.pending && Date.now() < r.deadline;
+            if (focused && !restoring && event.nativeEvent.layoutMeasurement.height > 0) {
+              scrollOffset.current = event.nativeEvent.contentOffset.y;
+            }
+          }}
+          onContentSizeChange={(_, height) => handleContentSize(height)}
           ListEmptyComponent={
             <EmptyState
               icon="search"
