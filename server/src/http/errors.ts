@@ -94,6 +94,24 @@ export const upstreamMisconfigured = () =>
     retryable: false,
   });
 
+/**
+ * Credentials exist but the upstream rejected them.
+ *
+ * Shares the code with `upstreamMisconfigured` on purpose — the client's
+ * handling is identical ("this is a configuration problem, don't retry") — but
+ * the message must differ. Telling someone with a typo'd token to "copy
+ * .env.example to .env" sends them to create a file they already have.
+ */
+export const upstreamCredentialRejected = (status: number) =>
+  new ApiError({
+    code: 'UPSTREAM_MISCONFIGURED',
+    status: 503,
+    message:
+      `TMDB rejected the configured credential (HTTP ${status}). ` +
+      'Check TMDB_ACCESS_TOKEN (or TMDB_API_KEY) in server/.env — it may be mistyped, truncated, or revoked.',
+    retryable: false,
+  });
+
 export const internal = (message = 'Something went wrong.', cause?: unknown) =>
   new ApiError({ code: 'INTERNAL', status: 500, message, retryable: true, cause });
 

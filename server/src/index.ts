@@ -14,7 +14,11 @@ import { runMigrations } from './db/migrate';
 import { getDbStats, pruneExpiredCache, pruneUnreferencedMovies } from './db/queries';
 import { env } from './env';
 import { logger } from './logger';
+import * as cache from './resilience/cache';
 import { registerHealthProviders } from './services/health.service';
+import { resolveDetailForSnapshot } from './services/movies.service';
+import { setDetailResolver } from './services/wishlist.service';
+import { faultStats, tmdbStats } from './tmdb/tmdb-client';
 
 const CACHE_GC_INTERVAL_MS = 10 * 60 * 1000;
 const SNAPSHOT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -50,7 +54,16 @@ function main(): void {
         movieRows: stats.movieRows,
       };
     },
+    cache: () => cache.stats(),
+    tmdb: () => tmdbStats(),
+    fault: () => faultStats(),
   });
+
+  // Injected here rather than imported by the wishlist service, so that service
+  // stays testable with no network and no API key. This is the last resort in
+  // its snapshot chain: it only runs when a movie is wishlisted by bare id and
+  // we hold nothing locally.
+  setDetailResolver(resolveDetailForSnapshot);
 
   startCacheGc();
 

@@ -257,9 +257,27 @@ export function deleteCacheNamespace(namespace?: string): number {
   return result.changes;
 }
 
-/** Called on boot and periodically; drops entries past even their stale window. */
-export function pruneExpiredCache(atMs: number = now()): number {
-  return db.delete(httpCache).where(lt(httpCache.staleUntil, atMs)).run().changes;
+/**
+ * How long an entry is kept *after* its stale window closes.
+ *
+ * This exists because the GC and the stale-if-error fallback want opposite
+ * things: the fallback deliberately reads entries past `stale_until` (any data
+ * beats an error screen), so deleting them the moment that window closes
+ * removes the last line of defence — measurably, it turned a degraded-but-
+ * working response into a 503. Retaining them for a while keeps the emergency
+ * floor intact while still bounding table growth.
+ */
+export const STALE_IF_ERROR_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Called on boot and periodically. Deliberately does NOT delete at stale_until. */
+export function pruneExpiredCache(
+  atMs: number = now(),
+  retentionMs: number = STALE_IF_ERROR_RETENTION_MS,
+): number {
+  return db
+    .delete(httpCache)
+    .where(lt(httpCache.staleUntil, atMs - retentionMs))
+    .run().changes;
 }
 
 /**

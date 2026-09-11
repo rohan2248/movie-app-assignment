@@ -10,7 +10,9 @@ import {
   readDeviceId,
   requestLogger,
 } from './http/middleware';
+import { debugRouter } from './routes/debug.routes';
 import { healthRouter } from './routes/health.routes';
+import { genresRouter, moviesRouter } from './routes/movies.routes';
 import { wishlistRouter } from './routes/wishlist.routes';
 
 /**
@@ -52,7 +54,15 @@ export function createApp(): Express {
   app.use(inboundLimiter());
 
   app.use('/api', healthRouter);
+  app.use('/api/movies', moviesRouter);
+  app.use('/api/genres', genresRouter);
   app.use('/api/wishlist', wishlistRouter);
+
+  // Mounted only when explicitly enabled; otherwise these paths 404 like any
+  // unknown route.
+  if (env.ENABLE_FAULT_INJECTION) {
+    app.use('/api/debug', debugRouter);
+  }
 
   app.use(notFoundHandler);
   app.use(errorHandler);
