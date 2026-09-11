@@ -31,7 +31,17 @@ yarn-error.*
 *.pem
 
 # local env files
+# NOTE: plain `.env` is listed explicitly. The Expo template only ignored
+# `.env*.local`, which would have let server/.env (the TMDB key) be committed.
 .env*.local
+.env
+**/.env
+
+# server runtime data (the SQLite file). Migrations in server/drizzle/ ARE committed.
+server/data/
+*.db
+*.db-shm
+*.db-wal
 
 # typescript
 *.tsbuildinfo

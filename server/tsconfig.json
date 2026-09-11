@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+
+    /**
+     * `module: preserve` (which implies `moduleResolution: bundler`) lets us
+     * write extensionless relative imports and have `tsc --noEmit` accept them,
+     * while tsx resolves them at runtime. The alternative, `nodenext`, would
+     * force an explicit `.js` extension on every relative import in this
+     * `"type": "module"` package for no benefit, since we never emit JS.
+     */
+    "module": "preserve",
+    "types": ["node"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": false,
+
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "noEmit": true,
+
+    /* No `baseUrl`: deprecated in TS 6, and `paths` resolves relative to this
+       file under bundler resolution, so it was never needed. */
+    "paths": {
+      "@shared/*": ["../shared/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "drizzle.config.ts", "../shared/**/*.ts"]
+}
