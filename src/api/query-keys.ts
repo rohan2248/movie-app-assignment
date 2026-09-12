@@ -32,3 +32,12 @@ export const movieKeys = {
 export const genreKeys = {
   all: ['genres'] as const,
 };
+
+/**
+ * Keyed by device id, so a regenerated identity starts from an empty list
+ * rather than inheriting the previous one's cache entry.
+ */
+export const wishlistKeys = {
+  all: ['wishlist'] as const,
+  list: (deviceId: string) => [...wishlistKeys.all, deviceId] as const,
+};

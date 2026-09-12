@@ -12,9 +12,11 @@ import { Skeleton } from '@/components/skeleton';
 import { ActionButton, Banner } from '@/components/state-views';
 import { ThemedText } from '@/components/themed-text';
 import { CollapsibleText } from '@/components/ui/collapsible';
+import { WishlistErrorBanner } from '@/components/wishlist-heart';
 import { BackdropAspectRatio, PosterAspectRatio, Radius, Spacing } from '@/constants/theme';
 import { useGenresQuery } from '@/hooks/use-movies-query';
 import { useTheme } from '@/hooks/use-theme';
+import { useWishlistIds, useWishlistToggle } from '@/hooks/use-wishlist';
 import { describeError } from '@/lib/error-copy';
 import { formatCount, formatRating, formatReleaseDate, formatRuntime } from '@/lib/format';
 
@@ -237,7 +239,11 @@ function DetailSections({
     <View style={{ gap: Spacing.four }}>
       <GenreTags base={base} movie={movie} />
 
-      <WishlistButton wide={wide} />
+      {/* `base` on purpose, not `movie`: the summary from the grid cache is a
+          complete MovieSummary, so the movie can be saved before its detail
+          has loaded — or while TMDB is unreachable. */}
+      <WishlistButton movie={base} wide={wide} />
+      <WishlistErrorBanner />
 
       {degraded && (
         <Banner
@@ -314,16 +320,25 @@ function GenreTags({ base, movie }: Pick<Props, 'base' | 'movie'>) {
   );
 }
 
-/** Visual only for now: Phase 7 wires it to the optimistic wishlist mutation. */
-function WishlistButton({ wide }: { wide: boolean }) {
+/**
+ * The full-width CTA. Saved state inverts it to an outline, so "in your
+ * wishlist" reads as a state rather than as another call to action — and
+ * pressing it again removes the movie.
+ */
+function WishlistButton({ movie, wide }: { movie: MovieSummary; wide: boolean }) {
   const theme = useTheme();
+  const ids = useWishlistIds();
+  const { toggle, enabled } = useWishlistToggle();
+  const inWishlist = ids.has(movie.id);
+
   return (
     <Pressable
-      disabled
       accessibilityRole="button"
-      accessibilityState={{ disabled: true }}
-      accessibilityLabel="Add to wishlist"
-      style={{
+      accessibilityState={{ selected: inWishlist, disabled: !enabled }}
+      accessibilityLabel={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+      disabled={!enabled}
+      onPress={() => toggle(movie, !inWishlist)}
+      style={({ pressed }) => ({
         minHeight: 48,
         alignSelf: wide ? 'flex-start' : 'stretch',
         minWidth: wide ? 260 : undefined,
@@ -334,12 +349,20 @@ function WishlistButton({ wide }: { wide: boolean }) {
         gap: Spacing.two,
         borderRadius: Radius.md,
         borderCurve: 'continuous',
-        backgroundColor: theme.accent,
-        opacity: 0.5,
-      }}>
-      <Icon name="wishlist" size={18} color={theme.accentContrast} />
-      <ThemedText type="smallBold" style={{ color: theme.accentContrast, fontSize: 16 }}>
-        Add to Wishlist
+        borderWidth: 1,
+        borderColor: theme.accent,
+        backgroundColor: inWishlist ? 'transparent' : theme.accent,
+        opacity: !enabled ? 0.5 : pressed ? 0.75 : 1,
+      })}>
+      <Icon
+        name={inWishlist ? 'wishlistFilled' : 'wishlist'}
+        size={18}
+        color={inWishlist ? theme.accent : theme.accentContrast}
+      />
+      <ThemedText
+        type="smallBold"
+        style={{ color: inWishlist ? theme.accent : theme.accentContrast, fontSize: 16 }}>
+        {inWishlist ? 'In your Wishlist' : 'Add to Wishlist'}
       </ThemedText>
     </Pressable>
   );

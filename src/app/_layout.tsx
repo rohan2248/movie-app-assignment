@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { createQueryClient } from '@/api/query-client';
 import { Colors } from '@/constants/theme';
 import { ThemePreferenceProvider, useThemePreference } from '@/providers/theme-preference';
+import { WishlistProvider, useWishlistContext } from '@/providers/wishlist-provider';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -18,21 +19,28 @@ export default function RootLayout() {
   return (
     <ThemePreferenceProvider>
       <QueryClientProvider client={queryClient}>
-        <RootNavigator />
+        {/* Inside the query client: its whole job is to seed and mirror one
+            cache entry. */}
+        <WishlistProvider>
+          <RootNavigator />
+        </WishlistProvider>
       </QueryClientProvider>
     </ThemePreferenceProvider>
   );
 }
 
 function RootNavigator() {
-  const { scheme, ready } = useThemePreference();
+  const { scheme, ready: themeReady } = useThemePreference();
+  const { ready: wishlistReady } = useWishlistContext();
   const colors = Colors[scheme];
   const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
 
   // preventAutoHideAsync() above means nothing hides the splash but this call.
-  // Hold it only until the saved theme is read (a local read that settles on
-  // success *or* failure), so the first frame is never the wrong theme — and
-  // never hold it behind a network request.
+  // Held only for the two local reads — the saved theme and the device id plus
+  // wishlist mirror — each of which settles on success *or* failure. So the
+  // first frame is never the wrong theme and never an empty wishlist, and the
+  // splash is never waiting on the network.
+  const ready = themeReady && wishlistReady;
   useEffect(() => {
     if (ready) SplashScreen.hideAsync();
   }, [ready]);

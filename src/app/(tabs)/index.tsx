@@ -11,6 +11,7 @@ import { SearchField } from '@/components/discover/search-field';
 import { MovieGrid, MovieGridSkeleton } from '@/components/movie-grid';
 import { Banner, EmptyState, ErrorState } from '@/components/state-views';
 import { ThemedText } from '@/components/themed-text';
+import { WishlistErrorBanner } from '@/components/wishlist-heart';
 import { Spacing } from '@/constants/theme';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useDiscoverParams } from '@/hooks/use-discover-params';
@@ -249,6 +250,9 @@ export default function DiscoverScreen() {
             {movies.isRefetchError && items.length > 0 && (
               <Banner tone="warning" icon="error" text="Couldn't refresh. Showing the last results." />
             )}
+            {/* A heart that failed and rolled back explains itself here, above
+                the grid, rather than inside a cell that can scroll away. */}
+            <WishlistErrorBanner />
             {(summary || notes.length > 0) && (
               <Animated.View entering={FadeIn.duration(150)} style={{ gap: Spacing.half }}>
                 {summary && (

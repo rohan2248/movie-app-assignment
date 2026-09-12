@@ -7,6 +7,7 @@ import { Icon } from '@/components/icon';
 import { PosterImage } from '@/components/poster-image';
 import { Skeleton } from '@/components/skeleton';
 import { ThemedText } from '@/components/themed-text';
+import { WishlistHeart } from '@/components/wishlist-heart';
 import { Radius, Spacing } from '@/constants/theme';
 import {
   CARD_MAX_FONT_SCALE,
@@ -35,19 +36,32 @@ export function MoviePosterCard({ movie, layout }: Props) {
   const ratingLabel = movie.rating !== null ? `, rated ${formatRating(movie.rating)} out of 10` : '';
 
   return (
-    <Link href={{ pathname: '/movie/[id]', params: { id: String(movie.id) } }} asChild>
-      <Pressable
-        accessibilityRole="link"
-        accessibilityLabel={`${movie.title}, ${year}${ratingLabel}`}
-        // Touch-down, not tap: the detail request starts before the push does.
-        onPressIn={() => prefetchMovieDetail(queryClient, movie.id)}
-        // Static style on purpose: under `Link asChild` on web a function-form
-        // style is dropped, silently losing the fixed size. Pressed feedback
-        // lives in the children render function instead.
-        style={{ width: layout.cardWidth, height: layout.cardHeight }}>
-        {({ pressed }) => <CardBody movie={movie} layout={layout} year={year} pressed={pressed} />}
-      </Pressable>
-    </Link>
+    <View style={{ width: layout.cardWidth, height: layout.cardHeight }}>
+      <Link href={{ pathname: '/movie/[id]', params: { id: String(movie.id) } }} asChild>
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={`${movie.title}, ${year}${ratingLabel}`}
+          // Touch-down, not tap: the detail request starts before the push does.
+          onPressIn={() => prefetchMovieDetail(queryClient, movie.id)}
+          // Static style on purpose: under `Link asChild` on web a function-form
+          // style is dropped, silently losing the fixed size. Pressed feedback
+          // lives in the children render function instead.
+          style={{ width: layout.cardWidth, height: layout.cardHeight }}>
+          {({ pressed }) => <CardBody movie={movie} layout={layout} year={year} pressed={pressed} />}
+        </Pressable>
+      </Link>
+
+      {/* A sibling of the link, not a child of it: nesting a button inside an
+          anchor is invalid on web and its click would also follow the link. */}
+      <WishlistHeart
+        movie={movie}
+        style={{
+          position: 'absolute',
+          right: Spacing.two,
+          top: layout.posterHeight - 32 - Spacing.two,
+        }}
+      />
+    </View>
   );
 }
 
