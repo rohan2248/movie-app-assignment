@@ -42,6 +42,31 @@ export function summaryToDetail(summary: MovieSummary): MovieDetail {
     status: null,
     originalLanguage: null,
     tmdbUrl: `${TMDB_WEB_BASE}/${summary.id}`,
+    cast: [],
+    director: null,
+    writers: [],
+    trailer: null,
+  };
+}
+
+/**
+ * Backfills detail-only fields that didn't exist yet when a value was written.
+ *
+ * The cache (L1 memory + L2 SQLite) and the `movies` snapshot table can both
+ * outlive a deploy — 7-day stale windows and indefinite DB rows are the whole
+ * point of the resilience design. Without this, a `MovieDetail` written before
+ * a field like `cast` existed would come back with that key simply absent
+ * (not `null`) despite the shared contract's "every field is always present"
+ * rule, and crash the client. New optional-looking fields must be added here
+ * too, alongside the type.
+ */
+export function withDetailDefaults(movie: MovieDetail): MovieDetail {
+  return {
+    ...movie,
+    cast: movie.cast ?? [],
+    director: movie.director ?? null,
+    writers: movie.writers ?? [],
+    trailer: movie.trailer ?? null,
   };
 }
 
@@ -70,6 +95,10 @@ export function placeholderDetail(id: number): MovieDetail {
     status: null,
     originalLanguage: null,
     tmdbUrl: `${TMDB_WEB_BASE}/${id}`,
+    cast: [],
+    director: null,
+    writers: [],
+    trailer: null,
   };
 }
 

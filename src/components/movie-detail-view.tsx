@@ -1,4 +1,10 @@
-import type { Genre, MovieDetail, MovieSummary } from "@shared/api-types";
+import type {
+  CastMember,
+  Genre,
+  MovieDetail,
+  MovieSummary,
+  Trailer,
+} from "@shared/api-types";
 import { Image } from "expo-image";
 import type { Href } from "expo-router";
 import type { ReactNode } from "react";
@@ -6,6 +12,7 @@ import { Pressable, useWindowDimensions, View } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 
 import { ExternalLink } from "@/components/external-link";
+import { HorizontalRail } from "@/components/horizontal-rail";
 import { Icon } from "@/components/icon";
 import { PosterImage } from "@/components/poster-image";
 import { Skeleton } from "@/components/skeleton";
@@ -35,6 +42,10 @@ export const DETAIL_WIDE_BREAKPOINT = 768;
 const MAX_DETAIL_WIDTH = 1080;
 const MAX_WIDE_BACKDROP_HEIGHT = 420;
 const SIDE_PADDING = Spacing.three;
+const CAST_AVATAR_SIZE = 72;
+const CAST_ITEM_WIDTH = 84;
+const CAST_ITEM_HEIGHT = 128;
+const PLAY_BUTTON_SIZE = 56;
 
 type Props = {
   /** Always present: the grid's summary, or the loaded detail itself. */
@@ -102,6 +113,7 @@ export function MovieDetailView(props: Props) {
         pending={loading && !movie}
         height={layout.backdropHeight}
         rounded={layout.wide}
+        trailer={movie?.trailer ?? null}
       />
 
       <View style={{ paddingHorizontal: SIDE_PADDING, gap: Spacing.four }}>
@@ -140,11 +152,13 @@ function Backdrop({
   pending,
   height,
   rounded,
+  trailer,
 }: {
   url: string | null;
   pending: boolean;
   height: number;
   rounded: boolean;
+  trailer: Trailer | null;
 }) {
   const theme = useTheme();
   const radius = rounded ? Radius.lg : 0;
@@ -173,7 +187,48 @@ function Backdrop({
           accessibilityIgnoresInvertColors
         />
       )}
+      {trailer && <TrailerButton trailer={trailer} />}
     </View>
+  );
+}
+
+/** Overlays the backdrop with a play affordance that opens the trailer on YouTube. */
+function TrailerButton({ trailer }: { trailer: Trailer }) {
+  return (
+    <ExternalLink
+      href={`https://www.youtube.com/watch?v=${trailer.key}` as Href & string}
+      asChild
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Play trailer: ${trailer.name}`}
+        hitSlop={12}
+        style={({ pressed }) => ({
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          alignItems: "center",
+          justifyContent: "center",
+          opacity: pressed ? 0.8 : 1,
+        })}
+      >
+        <View
+          style={{
+            width: PLAY_BUTTON_SIZE,
+            height: PLAY_BUTTON_SIZE,
+            borderRadius: PLAY_BUTTON_SIZE / 2,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "rgba(0, 0, 0, 0.55)",
+          }}
+        >
+          {/* Nudged right: a centered triangle glyph looks visually off-center. */}
+          <Icon name="play" size={26} color="#fff" style={{ marginLeft: 3 }} />
+        </View>
+      </Pressable>
+    </ExternalLink>
   );
 }
 
@@ -338,6 +393,8 @@ function DetailSections({
       )}
 
       <Overview movie={movie} loading={loading} />
+
+      <CastRow movie={movie} loading={loading} />
 
       {movie && <Facts movie={movie} />}
 
@@ -510,6 +567,85 @@ function Overview({ movie, loading }: Pick<Props, "movie" | "loading">) {
   );
 }
 
+function CastRow({ movie, loading }: Pick<Props, "movie" | "loading">) {
+  return (
+    <HorizontalRail
+      title="Top Cast"
+      items={movie ? movie.cast : loading ? null : []}
+      keyExtractor={(member) => member.id}
+      renderItem={(member) => <CastItem member={member} />}
+      itemWidth={CAST_ITEM_WIDTH}
+      skeletonHeight={CAST_ITEM_HEIGHT}
+    />
+  );
+}
+
+function CastItem({ member }: { member: CastMember }) {
+  return (
+    <View style={{ alignItems: "center", gap: Spacing.one }}>
+      <CastAvatar member={member} />
+      <ThemedText
+        selectable
+        numberOfLines={2}
+        style={{ fontSize: 12, lineHeight: 15, textAlign: "center" }}
+      >
+        {member.name}
+      </ThemedText>
+      {member.character && (
+        <ThemedText
+          type="small"
+          themeColor="textSecondary"
+          numberOfLines={1}
+          style={{ fontSize: 11, textAlign: "center" }}
+        >
+          {member.character}
+        </ThemedText>
+      )}
+    </View>
+  );
+}
+
+/** A circular headshot, falling back to initials rather than a broken-image glyph. */
+function CastAvatar({ member }: { member: CastMember }) {
+  const theme = useTheme();
+  const initials = member.name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
+  return (
+    <View
+      style={{
+        width: CAST_AVATAR_SIZE,
+        height: CAST_AVATAR_SIZE,
+        borderRadius: CAST_AVATAR_SIZE / 2,
+        overflow: "hidden",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: theme.posterPlaceholder,
+      }}
+    >
+      {member.profileUrl ? (
+        <Image
+          source={{ uri: member.profileUrl }}
+          style={{ width: "100%", height: "100%" }}
+          contentFit="cover"
+          transition={180}
+          cachePolicy="memory-disk"
+          recyclingKey={String(member.id)}
+          accessibilityIgnoresInvertColors
+        />
+      ) : (
+        <ThemedText type="smallBold" themeColor="textSecondary">
+          {initials}
+        </ThemedText>
+      )}
+    </View>
+  );
+}
+
 function Facts({ movie }: { movie: MovieDetail }) {
   const theme = useTheme();
   const rows: [string, string][] = [];
@@ -517,6 +653,8 @@ function Facts({ movie }: { movie: MovieDetail }) {
     rows.push(["Released", formatReleaseDate(movie.releaseDate)]);
   if (movie.runtimeMinutes)
     rows.push(["Runtime", formatRuntime(movie.runtimeMinutes)]);
+  if (movie.director) rows.push(["Director", movie.director]);
+  if (movie.writers.length > 0) rows.push(["Writers", movie.writers.join(", ")]);
   if (movie.status) rows.push(["Status", movie.status]);
   if (movie.originalLanguage)
     rows.push(["Original language", movie.originalLanguage.toUpperCase()]);
@@ -585,11 +723,6 @@ function Attribution({ tmdbUrl }: { tmdbUrl: string | null }) {
           </Pressable>
         </ExternalLink>
       )}
-      <ThemedText
-        type="small"
-        themeColor="textSecondary"
-        style={{ fontSize: 12, lineHeight: 16 }}
-      ></ThemedText>
     </View>
   );
 }

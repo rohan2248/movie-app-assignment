@@ -25,6 +25,7 @@ const ICONS = {
   refresh: { ios: 'arrow.clockwise', android: 'refresh', web: 'refresh' },
   chevronRight: { ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' },
   external: { ios: 'arrow.up.right.square', android: 'open_in_new', web: 'open_in_new' },
+  play: { ios: 'play.fill', android: 'play_arrow', web: 'play_arrow' },
 } as const satisfies Record<string, SymbolName>;
 
 export type IconName = keyof typeof ICONS;

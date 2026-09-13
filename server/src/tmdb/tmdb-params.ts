@@ -104,7 +104,9 @@ export function buildMovieListRequest(query: MovieListQuery): BuiltRequest {
 export function buildMovieDetailRequest(id: number): TmdbRequest {
   return {
     path: `/movie/${id}`,
-    params: { language: 'en-US' },
+    // credits + videos ride along on the same call, so cast/crew/trailer cost
+    // zero extra upstream requests and stay inside the existing cache/breaker.
+    params: { language: 'en-US', append_to_response: 'credits,videos' },
   };
 }
 

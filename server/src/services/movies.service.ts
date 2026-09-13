@@ -16,7 +16,7 @@ import { buildMovieDetailRequest, buildMovieListRequest } from '../tmdb/tmdb-par
 import { tmdbGet } from '../tmdb/tmdb-client';
 import { tmdbListEnvelopeSchema } from '../tmdb/tmdb-schemas';
 import { MAX_PAGE, type MovieListQuery } from '../validation/request-schemas';
-import { baseMeta } from './dto';
+import { baseMeta, withDetailDefaults } from './dto';
 import { getGenreMap } from './genres.service';
 
 /**
@@ -185,6 +185,10 @@ async function persistSnapshots(items: MovieSummary[]): Promise<void> {
         status: null,
         originalLanguage: null,
         tmdbUrl: `https://www.themoviedb.org/movie/${item.id}`,
+        cast: [],
+        director: null,
+        writers: [],
+        trailer: null,
       });
     }
   } catch (error) {
@@ -297,7 +301,7 @@ export async function getMovieDetail(
 
   const hit = cache.get<MovieDetail>(key);
   if (hit.state === 'fresh') {
-    return { movie: hit.value, meta: baseMeta(requestId, { source: 'cache' }) };
+    return { movie: withDetailDefaults(hit.value), meta: baseMeta(requestId, { source: 'cache' }) };
   }
 
   try {
@@ -336,7 +340,7 @@ export async function getMovieDetail(
     if (expired.state !== 'miss') {
       metrics.staleIfErrorServes += 1;
       return {
-        movie: expired.value,
+        movie: withDetailDefaults(expired.value),
         meta: baseMeta(requestId, {
           source: 'stale-cache',
           degraded: true,
@@ -350,7 +354,7 @@ export async function getMovieDetail(
     const snapshot = queries.getMovieSnapshot(id);
     if (snapshot) {
       return {
-        movie: snapshot,
+        movie: withDetailDefaults(snapshot),
         meta: baseMeta(requestId, {
           source: 'stale-cache',
           degraded: true,

@@ -82,12 +82,49 @@ export const tmdbGenreSchema = z.looseObject({
   name: z.string().trim().min(1),
 });
 
+/** One cast entry from `append_to_response=credits`. Order drives "top billed". */
+export const tmdbCastMemberSchema = z.looseObject({
+  id: requiredId,
+  name: z.string().trim().min(1),
+  character: looseString.nullable().optional(),
+  profile_path: looseString.nullable().optional(),
+  order: looseInt,
+});
+
+/** One crew entry. `job` is how a director/writer is identified. */
+export const tmdbCrewMemberSchema = z.looseObject({
+  id: requiredId,
+  name: z.string().trim().min(1),
+  job: looseString,
+  department: looseString,
+});
+
+export const tmdbCreditsSchema = z.looseObject({
+  cast: z.preprocess((value) => (Array.isArray(value) ? value : []), z.array(z.unknown())).optional(),
+  crew: z.preprocess((value) => (Array.isArray(value) ? value : []), z.array(z.unknown())).optional(),
+});
+
+/** One video entry from `append_to_response=videos`. Only YouTube trailers are used. */
+export const tmdbVideoSchema = z.looseObject({
+  key: z.string().trim().min(1),
+  site: looseString,
+  type: looseString,
+  name: looseString,
+  official: z.boolean().optional(),
+});
+
+export const tmdbVideosSchema = z.looseObject({
+  results: z.preprocess((value) => (Array.isArray(value) ? value : []), z.array(z.unknown())).optional(),
+});
+
 export const tmdbMovieDetailSchema = tmdbMovieItemSchema.extend({
   runtime: looseInt.nullable().optional(),
   tagline: looseString,
   status: looseString,
   // Partial entries are filtered out in the mapper rather than rejected here.
   genres: z.preprocess((value) => (Array.isArray(value) ? value : []), z.array(z.unknown())).optional(),
+  credits: tmdbCreditsSchema.optional(),
+  videos: tmdbVideosSchema.optional(),
 });
 
 export type TmdbMovieDetail = z.output<typeof tmdbMovieDetailSchema>;

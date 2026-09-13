@@ -215,4 +215,109 @@ describe('parseMovieDetail', () => {
     assert.equal(parseMovieDetail(null), null);
     assert.notEqual(parseMovieDetail({ id: 1 }), null);
   });
+
+  it('sorts cast by billing order and truncates to the top 10', () => {
+    const cast = Array.from({ length: 12 }, (_, i) => ({
+      id: i + 1,
+      name: `Actor ${i + 1}`,
+      character: `Role ${i + 1}`,
+      order: 11 - i, // deliberately reversed, so sorting is actually exercised
+    }));
+    const detail = parseMovieDetail({ id: 1, title: 'A', credits: { cast } });
+    assert.equal(detail?.cast.length, 10);
+    assert.equal(detail?.cast[0]?.name, 'Actor 12'); // order: 0
+    assert.equal(detail?.cast[9]?.name, 'Actor 3'); // order: 9
+  });
+
+  it('drops a malformed cast entry without failing the rest', () => {
+    const detail = parseMovieDetail({
+      id: 1,
+      title: 'A',
+      credits: { cast: [{ id: 1, name: 'Real Actor', order: 0 }, { name: 'No id' }] },
+    });
+    assert.deepEqual(
+      detail?.cast.map((c) => c.name),
+      ['Real Actor'],
+    );
+  });
+
+  it('builds an absolute headshot URL and nulls a missing character', () => {
+    const detail = parseMovieDetail({
+      id: 1,
+      title: 'A',
+      credits: { cast: [{ id: 1, name: 'Actor', order: 0, profile_path: '/x.jpg' }] },
+    });
+    assert.equal(detail?.cast[0]?.profileUrl, 'https://image.tmdb.org/t/p/w185/x.jpg');
+    assert.equal(detail?.cast[0]?.character, null);
+  });
+
+  it('finds the director among crew and returns null when uncredited', () => {
+    const withDirector = parseMovieDetail({
+      id: 1,
+      title: 'A',
+      credits: { crew: [{ id: 1, name: 'Jane Director', job: 'Director', department: 'Directing' }] },
+    });
+    assert.equal(withDirector?.director, 'Jane Director');
+
+    const withoutDirector = parseMovieDetail({
+      id: 1,
+      title: 'A',
+      credits: { crew: [{ id: 1, name: 'Someone Else', job: 'Editor', department: 'Editing' }] },
+    });
+    assert.equal(withoutDirector?.director, null);
+  });
+
+  it('collects deduplicated writers from crew', () => {
+    const detail = parseMovieDetail({
+      id: 1,
+      title: 'A',
+      credits: {
+        crew: [
+          { id: 1, name: 'Writer One', job: 'Writer', department: 'Writing' },
+          { id: 1, name: 'Writer One', job: 'Screenplay', department: 'Writing' },
+          { id: 2, name: 'Writer Two', job: 'Story', department: 'Writing' },
+        ],
+      },
+    });
+    assert.deepEqual(detail?.writers, ['Writer One', 'Writer Two']);
+  });
+
+  it('prefers the official YouTube trailer', () => {
+    const detail = parseMovieDetail({
+      id: 1,
+      title: 'A',
+      videos: {
+        results: [
+          { key: 'unofficial', site: 'YouTube', type: 'Trailer', name: 'Fan cut', official: false },
+          { key: 'official', site: 'YouTube', type: 'Trailer', name: 'Official Trailer', official: true },
+        ],
+      },
+    });
+    assert.deepEqual(detail?.trailer, { key: 'official', name: 'Official Trailer' });
+  });
+
+  it('falls back to the first YouTube trailer when none is official', () => {
+    const detail = parseMovieDetail({
+      id: 1,
+      title: 'A',
+      videos: {
+        results: [{ key: 'first', site: 'YouTube', type: 'Trailer', name: 'Trailer', official: false }],
+      },
+    });
+    assert.deepEqual(detail?.trailer, { key: 'first', name: 'Trailer' });
+  });
+
+  it('ignores non-YouTube or non-trailer videos, returning null trailer', () => {
+    const detail = parseMovieDetail({
+      id: 1,
+      title: 'A',
+      videos: {
+        results: [
+          { key: 'a', site: 'Vimeo', type: 'Trailer', name: 'Vimeo cut' },
+          { key: 'b', site: 'YouTube', type: 'Teaser', name: 'Teaser' },
+        ],
+      },
+    });
+    assert.equal(detail?.trailer, null);
+  });
 });

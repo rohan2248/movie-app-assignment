@@ -1,10 +1,13 @@
-import type { Genre, MovieDetail, MovieSummary } from '@shared/api-types';
+import type { CastMember, Genre, MovieDetail, MovieSummary, Trailer } from '@shared/api-types';
 
 import { TMDB_WEB_BASE } from '../services/dto';
 import {
+  tmdbCastMemberSchema,
+  tmdbCrewMemberSchema,
   tmdbGenreSchema,
   tmdbMovieDetailSchema,
   tmdbMovieItemSchema,
+  tmdbVideoSchema,
   type TmdbMovieDetail,
   type TmdbMovieItem,
 } from './tmdb-schemas';
@@ -27,7 +30,11 @@ export const IMAGE_SIZES = {
   poster: 'w342',
   posterSmall: 'w185',
   backdrop: 'w780',
+  profile: 'w185',
 } as const;
+
+/** How many top-billed cast members reach the client. */
+const MAX_CAST = 10;
 
 /**
  * TMDB paths always begin with "/". Anything else (an empty string, a bare
@@ -149,6 +156,84 @@ export function resolveGenreIds(ids: number[], genreMap: Map<number, string>): G
   return resolved;
 }
 
+/**
+ * Top-billed cast, ordered the way TMDB orders billing.
+ *
+ * Each entry is validated on its own (same "one bad row costs one card, not
+ * the page" rule as `parseMovieList`), then truncated to the top MAX_CAST —
+ * a cast rail with 80 names would be useless, not thorough.
+ */
+export function parseCast(raw: unknown[] | undefined): CastMember[] {
+  const resolved: (CastMember & { order: number })[] = [];
+
+  for (const entry of raw ?? []) {
+    const parsed = tmdbCastMemberSchema.safeParse(entry);
+    if (!parsed.success) continue;
+    resolved.push({
+      id: parsed.data.id,
+      name: parsed.data.name,
+      character: normalizeText(parsed.data.character ?? undefined),
+      profileUrl: imageUrl(parsed.data.profile_path, IMAGE_SIZES.profile),
+      order: parsed.data.order ?? Number.MAX_SAFE_INTEGER,
+    });
+  }
+
+  resolved.sort((a, b) => a.order - b.order);
+
+  return resolved.slice(0, MAX_CAST).map(({ order: _order, ...member }) => member);
+}
+
+const DIRECTOR_JOBS = new Set(['Director']);
+const WRITER_JOBS = new Set(['Writer', 'Screenplay', 'Story']);
+
+/** Finds the credited director and writers from the crew list. */
+export function parseCrew(raw: unknown[] | undefined): { director: string | null; writers: string[] } {
+  let director: string | null = null;
+  const writers: string[] = [];
+  const seenWriters = new Set<string>();
+
+  for (const entry of raw ?? []) {
+    const parsed = tmdbCrewMemberSchema.safeParse(entry);
+    if (!parsed.success) continue;
+    const job = parsed.data.job;
+
+    if (!director && job && DIRECTOR_JOBS.has(job)) {
+      director = parsed.data.name;
+    }
+    if (job && WRITER_JOBS.has(job) && !seenWriters.has(parsed.data.name)) {
+      seenWriters.add(parsed.data.name);
+      writers.push(parsed.data.name);
+    }
+  }
+
+  return { director, writers };
+}
+
+/**
+ * The official YouTube trailer, if TMDB has one.
+ *
+ * Prefers TMDB's own `official` flag; falls back to the first YouTube
+ * trailer so a movie with only a fan-uploaded or regional trailer still
+ * gets a play button rather than none at all.
+ */
+export function parseTrailer(raw: unknown[] | undefined): Trailer | null {
+  const candidates: { key: string; name: string; official: boolean }[] = [];
+
+  for (const entry of raw ?? []) {
+    const parsed = tmdbVideoSchema.safeParse(entry);
+    if (!parsed.success) continue;
+    if (parsed.data.site !== 'YouTube' || parsed.data.type !== 'Trailer') continue;
+    candidates.push({
+      key: parsed.data.key,
+      name: parsed.data.name?.trim() || 'Trailer',
+      official: parsed.data.official === true,
+    });
+  }
+
+  const best = candidates.find((c) => c.official) ?? candidates[0];
+  return best ? { key: best.key, name: best.name } : null;
+}
+
 export function toMovieDetail(
   item: TmdbMovieDetail,
   genreMap: Map<number, string> = new Map(),
@@ -165,6 +250,7 @@ export function toMovieDetail(
   const genreIds = summary.genreIds.length > 0 ? summary.genreIds : genres.map((genre) => genre.id);
 
   const runtime = item.runtime;
+  const { director, writers } = parseCrew(item.credits?.crew);
 
   return {
     ...summary,
@@ -179,6 +265,10 @@ export function toMovieDetail(
     status: normalizeText(item.status),
     originalLanguage: normalizeText(item.original_language),
     tmdbUrl: `${TMDB_WEB_BASE}/${summary.id}`,
+    cast: parseCast(item.credits?.cast),
+    director,
+    writers,
+    trailer: parseTrailer(item.videos?.results),
   };
 }
 

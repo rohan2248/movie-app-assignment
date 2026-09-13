@@ -43,6 +43,22 @@ export type MovieSummary = {
   popularity: number | null;
 };
 
+export type CastMember = {
+  id: number;
+  /** Never empty; entries without a usable name are dropped server-side. */
+  name: string;
+  /** The role played. `null` when TMDB has no character credited. */
+  character: string | null;
+  /** Absolute, pre-sized headshot URL. `null` means render an initials tile. */
+  profileUrl: string | null;
+};
+
+/** A YouTube trailer. The client builds the watch URL from `key`. */
+export type Trailer = {
+  key: string;
+  name: string;
+};
+
 export type MovieDetail = MovieSummary & {
   /** Empty/whitespace upstream values are normalized to `null`. */
   overview: string | null;
@@ -58,6 +74,14 @@ export type MovieDetail = MovieSummary & {
   originalLanguage: string | null;
   /** Attribution link. Showing this is a TMDB licensing requirement. */
   tmdbUrl: string;
+  /** Top-billed cast, ordered by TMDB's billing order. Empty when uncredited. */
+  cast: CastMember[];
+  /** `null` when no director is credited. */
+  director: string | null;
+  /** Deduplicated by name. Empty when none credited. */
+  writers: string[];
+  /** The official YouTube trailer, if TMDB has one. */
+  trailer: Trailer | null;
 };
 
 /* ------------------------------------------------------- lists + pagination */
