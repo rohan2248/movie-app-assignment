@@ -97,13 +97,22 @@ export default function DiscoverScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedText]);
 
-  // The URL changed from outside the field (browser back, deep link): adopt it.
-  // Changes that *we* wrote match the debounced text and are skipped, so a
-  // late param update can never swallow keystrokes typed in the meantime.
-  useEffect(() => {
+  // The URL changed from outside the field (browser back, deep link): adopt
+  // it. Changes that *we* wrote match the debounced text and are skipped, so
+  // a late param update can never swallow keystrokes typed in the meantime.
+  //
+  // Done at render time against a `useState` sentinel, not in an effect: this
+  // is React's documented "adjusting state when a prop changes" pattern — it
+  // saves the extra render an effect would cost, and it isn't a
+  // set-state-in-effect violation because nothing here is synchronizing with
+  // an external system, it's deriving one piece of local state from another.
+  // A ref won't do under the compiler (refs can't be read or written during
+  // render), so the "last seen" value is state as well.
+  const [lastSyncedQuery, setLastSyncedQuery] = useState(filters.query);
+  if (filters.query !== lastSyncedQuery) {
+    setLastSyncedQuery(filters.query);
     if (filters.query !== debouncedText.trim()) setText(filters.query);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.query]);
+  }
 
   const movies = useMoviesQuery(filters);
   const genres = useGenresQuery();
