@@ -1,6 +1,7 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import * as SystemUI from 'expo-system-ui';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
@@ -45,6 +46,14 @@ function RootNavigator() {
     if (ready) SplashScreen.hideAsync();
   }, [ready]);
 
+  // The root view sits behind the navigator and shows through while a screen
+  // slides in or out. Left at the Android default it is white, which flashes
+  // against the dark theme. Runtime call rather than app.json: the theme is
+  // user-switchable, and this is the only path that also works in Expo Go.
+  useEffect(() => {
+    SystemUI.setBackgroundColorAsync(colors.background);
+  }, [colors.background]);
+
   return (
     <ThemeProvider
       value={{
@@ -59,7 +68,14 @@ function RootNavigator() {
         },
       }}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <Stack>
+      <Stack
+        screenOptions={{
+          // The navigator paints this before the screen's own ScrollView lays
+          // out, so it is what the push/pop actually slides over.
+          contentStyle: { backgroundColor: colors.background },
+          // iOS keeps 'default' so the interactive edge-swipe back is untouched.
+          animation: process.env.EXPO_OS === 'android' ? 'slide_from_right' : 'default',
+        }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="movie/[id]" options={{ title: '', headerBackTitle: 'Back' }} />
         <Stack.Screen name="+not-found" options={{ title: 'Not found' }} />
