@@ -3,6 +3,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 
 import { addWishlistItem, fetchWishlist, removeWishlistItem } from '@/api/wishlist';
 import { wishlistKeys } from '@/api/query-keys';
+import { hapticError, hapticToggle } from '@/lib/haptics';
 import { useWishlistContext } from '@/providers/wishlist-provider';
 
 /**
@@ -81,6 +82,10 @@ export function useWishlistToggle() {
     },
 
     onMutate: async ({ movie, next }): Promise<{ previous: WishlistEntry[] }> => {
+      // Fires with the optimistic patch, not with the server's reply: the tap
+      // should feel answered immediately, and it is immediately true on screen.
+      hapticToggle();
+
       // An in-flight GET would otherwise land after this patch and undo it.
       await queryClient.cancelQueries({ queryKey: key, exact: true });
       const previous = queryClient.getQueryData<WishlistEntry[]>(key) ?? EMPTY_ENTRIES;
@@ -98,6 +103,8 @@ export function useWishlistToggle() {
     onError: (error, _variables, context) => {
       if (context) queryClient.setQueryData<WishlistEntry[]>(key, context.previous);
       reportError(error);
+      // The heart just moved back on its own; the buzz explains why.
+      hapticError();
     },
 
     // Reconcile with the server's ordering and its real `addedAt`. Harmless

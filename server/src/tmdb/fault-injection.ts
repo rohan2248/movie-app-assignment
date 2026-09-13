@@ -92,6 +92,18 @@ export function faultActive(): boolean {
  * is demonstrable on a fresh checkout with no API key.
  */
 export function syntheticBody(path: string): unknown {
+  if (isGenrePath(path)) {
+    return {
+      genres: [
+        { id: 28, name: 'Action' },
+        { id: 35, name: 'Comedy' },
+        { id: 18, name: 'Drama' },
+        { id: 878, name: 'Science Fiction' },
+        { id: 53, name: 'Thriller' },
+      ],
+    };
+  }
+
   if (isListPath(path)) {
     return {
       page: 1,
@@ -125,6 +137,28 @@ export function syntheticBody(path: string): unknown {
 }
 
 const isListPath = (path: string) => path.includes('/discover/') || path.includes('/search/');
+/**
+ * The genre catalogue needs its own fixtures. Without this it fell through to
+ * the *movie detail* body, whose `genres` array has exactly one valid entry —
+ * so `malformed` and `empty` silently replaced all 19 genres with a single
+ * "Thriller" chip. That looked like a bug in genre handling rather than the
+ * injected upstream fault it actually was.
+ */
+const isGenrePath = (path: string) => path.includes('/genre/');
+
+/** Two valid rows and three unusable ones, to show per-item dropping. */
+function malformedGenreBody(): unknown {
+  return {
+    genres: [
+      { id: 28, name: 'Action' },
+      { id: 18 }, // no name
+      { name: 'Drama' }, // no id
+      { id: 'x', name: 'Broken' }, // non-numeric id
+      { id: 53, name: '   ' }, // whitespace name
+      { id: 35, name: 'Comedy' },
+    ],
+  };
+}
 
 /**
  * A page that is *partly* broken.
@@ -214,14 +248,23 @@ export async function applyFault(path: string): Promise<Interception> {
       throw new InjectedRateLimitError(2);
 
     case 'malformed':
-      return { kind: 'respond', body: isListPath(path) ? malformedListBody() : malformedDetailBody() };
+      return {
+        kind: 'respond',
+        body: isGenrePath(path)
+          ? malformedGenreBody()
+          : isListPath(path)
+            ? malformedListBody()
+            : malformedDetailBody(),
+      };
 
     case 'empty':
       return {
         kind: 'respond',
-        body: isListPath(path)
-          ? { page: 1, results: [], total_pages: 0, total_results: 0 }
-          : malformedDetailBody(),
+        body: isGenrePath(path)
+          ? { genres: [] }
+          : isListPath(path)
+            ? { page: 1, results: [], total_pages: 0, total_results: 0 }
+            : malformedDetailBody(),
       };
 
     // 'off' is unreachable: handled by the early return above.

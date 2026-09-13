@@ -40,7 +40,9 @@ export function SearchField({ value, onChangeText, busy }: Props) {
         maxLength={120}
         style={{ flex: 1, height: '100%', fontSize: 16, color: theme.text }}
       />
-      {busy && <ActivityIndicator size="small" color={theme.textSecondary} />}
+      {busy && (
+        <ActivityIndicator size="small" color={theme.textSecondary} accessibilityLabel="Searching" />
+      )}
       {value.length > 0 && (
         <Pressable
           onPress={() => onChangeText('')}

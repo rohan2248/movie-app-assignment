@@ -81,6 +81,9 @@ export function SortRow({ value, onChange, disabled, horizontalPadding }: SortRo
             label={SORT_LABELS[key]}
             selected={!disabled && value === key}
             disabled={disabled}
+            // The reason is on screen as a caption, but a screen reader lands
+            // on an inert pill with no explanation unless it is said here too.
+            accessibilityHint={disabled ? 'Sorting applies while browsing, not while searching' : undefined}
             onPress={() => onChange(key)}
           />
         ))}

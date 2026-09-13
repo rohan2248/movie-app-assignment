@@ -112,6 +112,10 @@ export function Banner({
       entering={FadeIn.duration(200)}
       exiting={FadeOut.duration(150)}
       accessibilityRole="alert"
+      // A banner appears *after* the screen has settled — degraded data, a
+      // failed refresh, a rolled-back heart. Without a live region, Android
+      // announces nothing at all, since focus never moves here.
+      accessibilityLiveRegion="polite"
       style={{
         flexDirection: 'row',
         alignItems: 'center',

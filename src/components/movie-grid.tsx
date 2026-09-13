@@ -80,7 +80,7 @@ export function MovieGrid({
 
   let footer: ReactElement | null = null;
   if (isFetchingNextPage) {
-    footer = <ActivityIndicator color={theme.textSecondary} />;
+    footer = <ActivityIndicator color={theme.textSecondary} accessibilityLabel="Loading more movies" />;
   } else if (loadMoreError && onLoadMore) {
     // Footer-level retry: page 11 timing out must never throw away pages 1–10.
     const copy = describeError(loadMoreError);
@@ -142,6 +142,10 @@ export function MovieGrid({
 export function MovieGridSkeleton({ layout, rows = 3 }: { layout: GridLayout; rows?: number }) {
   return (
     <View
+      // `accessible` collapses the placeholder blocks into this one node, so a
+      // screen reader says "Loading movies" instead of walking 6-18 empty views.
+      accessible
+      accessibilityRole="progressbar"
       accessibilityLabel="Loading movies"
       style={{
         flexDirection: 'row',
