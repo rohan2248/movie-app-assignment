@@ -19,6 +19,25 @@ first-class deliverable, not an afterthought.
 
 ## Setup
 
+**Fastest path for reviewing** — a hosted instance of `server/` (Render, with a
+real TMDB key configured) is already running, so you can skip the TMDB signup and
+`server/.env` step entirely:
+
+```bash
+npm install
+cp .env.example .env
+# uncomment the EXPO_PUBLIC_API_URL line pointing at the Render URL in .env.example
+npm start
+```
+
+Scan the QR code with **Expo Go**. Free-tier Render spins down after ~15min idle,
+so the first request may take 30-60s to wake it, and its SQLite-backed cache and
+wishlist reset on every restart (no persistent disk on the free plan) — fine for
+browsing, just don't expect wishlist entries to survive a cold start.
+
+**Running the whole stack locally** (needed if you want to exercise the
+resilience/fault-injection story in the table below — the hosted instance has
+`ENABLE_FAULT_INJECTION` on, but you'll want your own server logs/cache visible):
 Requires **Node ≥ 20.12** (tested on 24). Two `npm install`s: the Expo app at the
 repo root, and the Express server in its own `server/` package with its own
 `node_modules` and lockfile.
@@ -39,10 +58,11 @@ still boots and stays navigable with neither set: movie routes return a labelled
 hardcoded list, and the wishlist keeps working off its local snapshot table — an
 empty grid looks like a bug, so the server says exactly what's wrong instead.
 
-The root `.env.example` is almost never needed: the app derives the API host from
-the Expo dev server's own address (`Constants.expoConfig.hostUri`), which is what
-makes a physical device on Expo Go work with zero configuration. Only set
-`EXPO_PUBLIC_API_URL` if the API runs somewhere else.
+The root `.env.example` is almost never needed for local dev: the app derives the
+API host from the Expo dev server's own address (`Constants.expoConfig.hostUri`),
+which is what makes a physical device on Expo Go work with zero configuration.
+Only set `EXPO_PUBLIC_API_URL` if the API runs somewhere else (like the hosted
+instance above).
 
 ```bash
 npm run dev
@@ -199,6 +219,11 @@ app deciding for them.
   manually; there's no Maestro/Detox suite driving the actual app.
 - **The TMDB attribution requirement is met minimally** — a "View on TMDB" link
   and the required disclosure text on the detail screen, nothing more elaborate.
+- **The hosted demo server (Render free tier) has no persistent disk.** Its
+  SQLite cache and wishlist table reset on every restart/redeploy/idle
+  spin-down, and the service takes 30-60s to wake from a cold start. Run the
+  server locally (see Setup) to see the caching/persistence behavior actually
+  persist across restarts.
 
 ---
 
